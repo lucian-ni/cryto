@@ -50,18 +50,19 @@ INSERT_HURST_SQL = """
 MIN_VALID_RS_GROUPS = 2
 
 
-def compute_hurst_exponent(prices):
+def compute_hurst_exponent(prices, verbose=True):
     """
     使用R/S分析法（重标极差分析法）计算赫斯特指数
-    
+
     算法步骤：
     1. 计算对数收益率序列
     2. 对不同子序列长度n（取2的幂次），将序列分成多个子序列
     3. 对每个子序列计算：均值偏差的累积和的极差R，标准差S
     4. 计算R/S的均值
     5. 对 log(n) 和 log(R/S) 做线性回归，斜率即为赫斯特指数H
-    
+
     :param prices: 价格序列（numpy数组）
+    :param verbose: 是否打印R/S分析及拟合的详细日志，批量计算时建议False
     :return: 赫斯特指数值
     """
     min_data_points = HURST_MIN_SUBSERIES_LEN * 2
@@ -69,7 +70,8 @@ def compute_hurst_exponent(prices):
         raise ValueError(f"价格序列长度不足，至少需要 {min_data_points} 个数据点")
 
     # 第一步：计算对数收益率
-    print(f"{TAG_HURST} 计算对数收益率序列，价格序列长度：{len(prices)}")
+    if verbose:
+        print(f"{TAG_HURST} 计算对数收益率序列，价格序列长度：{len(prices)}")
     log_returns = np.diff(np.log(prices))
     n = len(log_returns)
 
@@ -77,7 +79,8 @@ def compute_hurst_exponent(prices):
     max_k = int(np.floor(np.log2(n)))
     min_k = int(np.ceil(np.log2(HURST_MIN_SUBSERIES_LEN)))
     sizes = [2 ** i for i in range(min_k, max_k + 1) if 2 ** i <= n // 2]
-    print(f"{TAG_HURST} R/S分析子序列长度列表：{sizes}")
+    if verbose:
+        print(f"{TAG_HURST} R/S分析子序列长度列表：{sizes}")
 
     if len(sizes) < MIN_VALID_RS_GROUPS:
         raise ValueError("数据长度不足以进行R/S分析，无法生成足够的分组")
@@ -102,8 +105,9 @@ def compute_hurst_exponent(prices):
         if rs_list:
             avg_rs = np.mean(rs_list)
             rs_values.append((size, avg_rs))
-            print(f"{TAG_HURST} 子序列长度={size}, 分组数={num_subseries}, "
-                  f"平均R/S={avg_rs:.4f}")
+            if verbose:
+                print(f"{TAG_HURST} 子序列长度={size}, 分组数={num_subseries}, "
+                      f"平均R/S={avg_rs:.4f}")
 
     if len(rs_values) < MIN_VALID_RS_GROUPS:
         raise ValueError("有效R/S值不足，无法进行线性拟合")
@@ -114,7 +118,8 @@ def compute_hurst_exponent(prices):
 
     # 最小二乘拟合，斜率即为赫斯特指数
     hurst, intercept = np.polyfit(log_sizes, log_rs, 1)
-    print(f"{TAG_HURST} 线性拟合完成：H={hurst:.6f}, 截距={intercept:.6f}")
+    if verbose:
+        print(f"{TAG_HURST} 线性拟合完成：H={hurst:.6f}, 截距={intercept:.6f}")
 
     return hurst
 
